@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Show Popup</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+
+    <style>
+      #myDiagramDiv {
+        width: 100%;
+        height: 600px;
+        position: relative;
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+        cursor: auto;
+        border: 1px solid black;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="myDiagramDiv"></div>
+    <div id="infoBoxHolder"></div>
+
+    <script>
+      function init() {
+        var $ = go.GraphObject.make;
+
+        myDiagram = $(go.Diagram, "myDiagramDiv", {
+          allowDelete: false,
+          "grid.visible": true,
+          "grid.gridCellSize": new go.Size(30, 20),
+          "draggingTool.isGridSnapEnabled": true,
+          "resizingTool.isGridSnapEnabled": true,
+          "rotatingTool.snapAngleMultiple": 90,
+          "rotatingTool.snapAngleEpsilon": 45,
+          "undoManager.isEnabled": true,
+          layout: $(go.ForceDirectedLayout),
+          ModelChanged: (e) => {
+            if (e.isTransactionFinished) updateAnimation();
+          },
+        });
+
+        myDiagram.nodeTemplate = $(
+          go.Node,
+          "Vertical",
+          {
+            click: function (e, obj) {
+              var node = obj.part;
+              if (node !== null) {
+                var keyText = document.getElementById("infoBoxHolder");
+                keyText.style.backgroundColor = "white";
+                keyText.style.padding = "15px";
+                keyText.innerHTML =
+                  "Description for node key: " +
+                  node.data.key +
+                  "<br />" +
+                  node.data.description;
+              }
+            },
+          }, // ... node visual elements go here
+          $(
+            go.Picture,
+            {
+              width: 50,
+              height: 50,
+              background: "white",
+              source: "https://img.icons8.com/color/48/000000/cloud.png",
+            },
+            new go.Binding("source", "icon"),
+            new go.Binding("opacity", "offline", function (offline) {
+              return offline ? 0.5 : 1;
+            })
+          ),
+          $(
+            go.TextBlock,
+
+            new go.Binding("text", "key")
+          )
+        );
+
+        myDiagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.AvoidsNodes,
+            curve: go.Link.JumpGap,
+            corner: 10,
+            reshapable: true,
+            toShortLength: 7,
+          },
+          new go.Binding("points").makeTwoWay(),
+          // mark each Shape to get the link geometry with isPanelMain: true
+          $(
+            go.Shape,
+            { isPanelMain: true, stroke: "black", strokeWidth: 7 },
+            new go.Binding("strokeWidth", "fromNode", function (node) {
+              return node.data.offline ? 2 : 7;
+            }).ofObject()
+          ),
+          $(
+            go.Shape,
+            { isPanelMain: true, stroke: "#ACB7D0", strokeWidth: 5 },
+            new go.Binding("stroke", "fromNode", function (node) {
+              return node.data.offline ? "gray" : "#ACB7D0";
+            }).ofObject(),
+            new go.Binding("strokeWidth", "fromNode", function (node) {
+              return node.data.offline ? 2 : 5;
+            }).ofObject()
+          ),
+          $(
+            go.Shape,
+            {
+              isPanelMain: true,
+              stroke: "white",
+              strokeWidth: 3,
+              name: "PIPE",
+              strokeDashArray: [10, 10],
+            },
+            new go.Binding("stroke", "fromNode", function (node) {
+              return node.data.offline ? "gray" : "white";
+            }).ofObject(),
+            new go.Binding("strokeWidth", "fromNode", function (node) {
+              return node.data.offline ? 1 : 3;
+            }).ofObject()
+          ),
+          $(go.Shape, {
+            toArrow: "Triangle",
+            scale: 1.5,
+            fill: "#ACB7D0",
+            stroke: null,
+          })
+        );
+
+        var model = $(go.GraphLinksModel);
+        model.nodeDataArray = [
+          {
+            key: "Cloud A",
+            icon: "https://img.icons8.com/dusk/64/null/download-from-cloud.png",
+            offline: false,
+            description: "description for Cloud A",
+          },
+          {
+            key: "Cloud B",
+            icon: "https://img.icons8.com/wired/64/null/download-from-cloud.png",
+            offline: true,
+            description: "description for Cloud B",
+          },
+          {
+            key: "Data Center A",
+            icon: "https://img.icons8.com/dusk/64/null/data-center.png",
+            offline: false,
+            description: "description for Data Center A",
+          },
+          {
+            key: "Data Center B",
+            icon: "https://img.icons8.com/wired/64/null/data-center.png",
+            offline: true,
+            description: "description for Data Center B",
+          },
+          {
+            key: "Virtual Machine A",
+            icon: "https://img.icons8.com/dusk/64/null/virtual-machine.png",
+            offline: false,
+            description: "description Virtual Machine A",
+          },
+          {
+            key: "Virtual Machine B",
+            icon: "https://img.icons8.com/wired/64/null/virtual-machine.png",
+            offline: true,
+            description: "description Virtual Machine B",
+          },
+          {
+            key: "Server A",
+            icon: "https://img.icons8.com/dusk/64/null/server.png",
+            offline: false,
+            description: "description Virtual Server A",
+          },
+          {
+            key: "Server B",
+            icon: "https://img.icons8.com/wired/64/null/server.png",
+            offline: true,
+            description: "description Virtual Server B",
+          },
+        ];
+        model.linkDataArray = [
+          { from: "Cloud A", to: "Data Center A", category: "animated" },
+          { from: "Cloud A", to: "Data Center B", category: "animated" },
+          { from: "Cloud B", to: "Data Center A", category: "animated" },
+          { from: "Cloud B", to: "Data Center B", category: "animated" },
+          {
+            from: "Data Center A",
+            to: "Virtual Machine A",
+            category: "animated",
+          },
+          {
+            from: "Data Center A",
+            to: "Virtual Machine B",
+            category: "animated",
+          },
+          { from: "Data Center B", to: "Server A", category: "animated" },
+          { from: "Data Center B", to: "Server B", category: "animated" },
+          { from: "Virtual Machine A", to: "Server A", category: "animated" },
+          { from: "Virtual Machine B", to: "Server A", category: "animated" },
+          { from: "Virtual Machine B", to: "Server B", category: "animated" },
+        ];
+
+        myDiagram.model = model;
+      }
+
+      myAnimation = null;
+
+      function updateAnimation() {
+        if (myAnimation) myAnimation.stop();
+        // Animate the flow in the pipes
+        myAnimation = new go.Animation();
+        myAnimation.easing = go.Animation.EaseLinear;
+        myDiagram?.links.each((link) =>
+          myAnimation?.add(link?.findObject("PIPE"), "strokeDashOffset", 20, 0)
+        );
+        // Run indefinitely
+        myAnimation.runCount = Infinity;
+        myAnimation.start();
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>
