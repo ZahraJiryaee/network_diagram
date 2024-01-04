@@ -6,24 +6,15 @@
     <title>Show Popup</title>
     <script src="https://unpkg.com/gojs/release/go.js"></script>
 
-    <style>
-      #myDiagramDiv {
-        width: 100%;
-        height: 600px;
-        position: relative;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        cursor: auto;
-        border: 1px solid black;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="myDiagramDiv"></div>
-    <div id="infoBoxHolder"></div>
-
     <script>
       function init() {
         var $ = go.GraphObject.make;
+
+        var roundedRectangleParams = {
+          parameter1: 2, // set the rounded corner
+          spot1: go.Spot.TopLeft,
+          spot2: go.Spot.BottomRight, // make content go all the way to inside edges of rounded corners
+        };
 
         myDiagram = $(go.Diagram, "myDiagramDiv", {
           allowDelete: false,
@@ -42,39 +33,78 @@
 
         myDiagram.nodeTemplate = $(
           go.Node,
-          "Vertical",
+          "Auto",
           {
-            click: function (e, obj) {
-              var node = obj.part;
-              if (node !== null) {
-                var keyText = document.getElementById("infoBoxHolder");
-                keyText.style.backgroundColor = "white";
-                keyText.style.padding = "15px";
-                keyText.innerHTML =
-                  "Description for node key: " +
-                  node.data.key +
-                  "<br />" +
-                  node.data.description;
-              }
-            },
-          }, // ... node visual elements go here
+            locationSpot: go.Spot.Top,
+            isShadowed: true,
+            shadowBlur: 1,
+            shadowOffset: new go.Point(0, 1),
+            shadowColor: "rgba(0, 0, 0, .14)",
+            // selection adornment to match shape of nodes
+            selectionAdornmentTemplate: $(
+              go.Adornment,
+              "Auto",
+              $(go.Shape, "RoundedRectangle", roundedRectangleParams, {
+                fill: null,
+                stroke: "#7986cb",
+                strokeWidth: 3,
+              }),
+              $(go.Placeholder)
+            ), // end Adornment
+          },
           $(
-            go.Picture,
-            {
-              width: 50,
-              height: 50,
-              background: "white",
-              source: "https://img.icons8.com/color/48/000000/cloud.png",
-            },
-            new go.Binding("source", "icon"),
-            new go.Binding("opacity", "offline", function (offline) {
-              return offline ? 0.5 : 1;
-            })
+            go.Panel,
+            "Auto",
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              roundedRectangleParams,
+              {
+                name: "SHAPE",
+                fill: "transparent",
+                strokeWidth: 0,
+              },
+              // gold if highlighted, transparent otherwise
+              new go.Binding("fill", "isHighlighted", (h) =>
+                h ? "gold" : "transparent"
+              ).ofObject()
+            )
           ),
           $(
-            go.TextBlock,
+            go.Panel,
+            "Auto",
+            $(
+              go.Panel,
+              "Vertical",
 
-            new go.Binding("text", "key")
+              {
+                click: function (e, obj) {
+                  var node = obj.part;
+                  if (node !== null) {
+                    var keyText = document.getElementById("infoBoxHolder");
+                    keyText.innerHTML = `<p class="strong">Description for node key: ${node.data.key}</p>  <p>${node.data.description}</p>`;
+                  }
+                },
+              }, // ... node visual elements go here
+              $(
+                go.Picture,
+                {
+                  width: 50,
+                  height: 50,
+                  background: "transparent",
+                  source: "https://img.icons8.com/color/48/000000/cloud.png",
+                },
+                new go.Binding("source", "icon"),
+                new go.Binding("opacity", "offline", function (offline) {
+                  return offline ? 0.5 : 1;
+                })
+              ),
+              $(
+                go.TextBlock,
+
+                new go.Binding("text", "key")
+              )
+            )
           )
         );
 
@@ -221,7 +251,224 @@
         myAnimation.start();
       }
 
+      function searchDiagram() {
+        // called by button
+        var input = document.getElementById("searchInput");
+        if (!input) return;
+        myDiagram.focus();
+
+        myDiagram.startTransaction("highlight search");
+
+        if (input.value) {
+          // search four different data properties for the string, any of which may match for success
+          // create a case insensitive RegExp from what the user typed
+          var safe = input.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          var regex = new RegExp(safe, "i");
+          var results = myDiagram.findNodesByExample({ key: regex });
+          myDiagram.highlightCollection(results);
+          // try to center the diagram at the first node that was found
+          if (results.count > 0)
+            myDiagram.centerRect(results.first().actualBounds);
+        } else {
+          // empty string only clears highlighteds collection
+          myDiagram.clearHighlighteds();
+        }
+
+        myDiagram.commitTransaction("highlight search");
+      }
+
       window.addEventListener("DOMContentLoaded", init);
     </script>
+
+    <style>
+      html {
+        padding: 1rem;
+      }
+
+      #myDiagramDiv {
+        width: 100%;
+        height: 600px;
+        position: relative;
+        -webkit-tap-highlight-color: rgba(0, 0, 255, 1);
+        cursor: auto;
+        border: 1px solid black;
+      }
+
+      .strong {
+        font-weight: 700;
+      }
+
+      .grayTxt {
+        color: rgba(0, 0, 0, 0.65);
+        font-size: 14px;
+      }
+
+      form.my-alert {
+        margin: 1rem 0 1.5rem;
+      }
+
+      form.my-alert > label {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        color: rgb(17, 24, 39);
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+
+      .dark form.my-alert > label {
+        color: white;
+      }
+
+      form.my-alert > div {
+        position: relative;
+      }
+
+      form.my-alert > div > div {
+        position: absolute;
+        top: 0px;
+        bottom: 0px;
+        left: 0px;
+        display: flex;
+        align-items: center;
+        padding-left: 0.75rem;
+        pointer-events: none;
+      }
+
+      form.my-alert > div > div > svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: rgb(107, 114, 128);
+      }
+
+      .dark form.my-alert > div > div > svg {
+        color: rgb(156, 163, 175);
+      }
+
+      form.my-alert > div > input {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        padding-left: 2.5rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: rgb(17, 24, 39);
+        border-width: 1px;
+        border-color: rgb(209, 213, 219);
+        border-radius: 0.5rem;
+        background-color: rgb(249, 250, 251);
+      }
+
+      form.my-alert > div > input:focus {
+        --tw-ring-color: rgb(59, 130, 246);
+        border-color: rgb(59, 130, 246);
+      }
+
+      .dark form.my-alert > div > input {
+        background-color: rgb(55, 65, 81);
+        border-color: rgb(75, 85, 99);
+      }
+
+      .dark form.my-alert > div > input::-moz-placeholder {
+        color: rgb(156, 163, 175);
+      }
+
+      .dark form.my-alert > div > input::placeholder {
+        color: rgb(156, 163, 175);
+      }
+
+      .dark form.my-alert > div > input {
+        color: white;
+      }
+
+      .dark form.my-alert > div > input:focus {
+        --tw-ring-color: rgb(59, 130, 246);
+        border-color: rgb(59, 130, 246);
+      }
+
+      form.my-alert > div > button {
+        color: white;
+        position: absolute;
+        right: 0.625rem;
+        bottom: 0.625rem;
+        background-color: rgb(29, 78, 216);
+      }
+
+      form.my-alert > div > button:hover {
+        background-color: rgb(30, 64, 175);
+      }
+
+      form.my-alert > div > button:focus {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        --tw-ring-color: rgb(147, 197, 253);
+      }
+
+      form.my-alert > div > button {
+        font-weight: 500;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+      }
+
+      .dark form.my-alert > div > button {
+        background-color: rgb(37, 99, 235);
+      }
+
+      .dark form.my-alert > div > button:hover {
+        background-color: rgb(29, 78, 216);
+      }
+
+      .dark form.my-alert > div > button:focus {
+        --tw-ring-color: rgb(30, 64, 175);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="myDiagramDiv"></div>
+
+    <form class="my-alert" onsubmit="return false">
+      <label for="searchInput">Search</label>
+      <div>
+        <div>
+          <svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            ></path>
+          </svg>
+        </div>
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="Search Nodes"
+          onkeypress="if (event.keyCode === 13) searchDiagram()"
+        />
+        <button type="submit" onclick="searchDiagram()">Search</button>
+      </div>
+    </form>
+
+    <p class="grayTxt">Click on any node to see the desscription.</p>
+    <div id="infoBoxHolder"></div>
   </body>
 </html>
